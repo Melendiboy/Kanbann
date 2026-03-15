@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Kanban" />
+  <meta name="theme-color" content="#f2f2f7" />
+  <title>Kanban</title>
+
+  <style>
+    :root {
+      --bg: #f2f2f7;
+      --surface: rgba(255,255,255,0.72);
+      --surface-solid: #ffffff;
+      --surface2: rgba(255,255,255,0.5);
+      --border: rgba(0,0,0,0.08);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.14), 0 4px 12px rgba(0,0,0,0.06);
+      --text: #1c1c1e;
+      --text2: #636366;
+      --text3: #aeaeb2;
+      --accent: #007aff;
+      --accent-light: rgba(0,122,255,0.1);
+      --todo-color: #ff9f0a;
+      --todo-bg: rgba(255,159,10,0.1);
+      --doing-color: #007aff;
+      --doing-bg: rgba(0,122,255,0.1);
+      --done-color: #34c759;
+      --done-bg: rgba(52,199,89,0.1);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 26px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1e;
+        --surface: rgba(44,44,46,0.8);
+        --surface-solid: #2c2c2e;
+        --surface2: rgba(58,58,60,0.6);
+        --border: rgba(255,255,255,0.08);
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+        --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+        --shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
+        --text: #ffffff;
+        --text2: #aeaeb2;
+        --text3: #636366;
+        --todo-bg: rgba(255,159,10,0.15);
+        --doing-bg: rgba(0,122,255,0.15);
+        --done-bg: rgba(52,199,89,0.15);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 56px 22px 12px;
+      background: transparent;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-title {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+    .header-count {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 20px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* ── Board ── */
+    .board {
+      flex: 1;
+      display: flex;
+      gap: 12px;
+      padding: 8px 12px 20px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .board::-webkit-scrollbar { display: none; }
+
+    /* ── Column ── */
+    .column {
+      flex: 0 0 calc(100vw - 56px);
+      min-width: 260px;
+      max-width: 320px;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      height: calc(100dvh - 160px);
+    }
+
+    .col-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px 10px;
+      position: sticky;
+      top: 0;
+    }
+    .col-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .col-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+    .col-badge {
+      font-size: 12px;
+      font-weight: 600;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    /* Column color themes */
+    .column[data-col="todo"] .col-dot { background: var(--todo-color); }
+    .column[data-col="todo"] .col-badge { background: var(--todo-bg); color: var(--todo-color); }
+    .column[data-col="doing"] .col-dot { background: var(--doing-color); }
+    .column[data-col="doing"] .col-badge { background: var(--doing-bg); color: var(--doing-color); }
+    .column[data-col="done"] .col-dot { background: var(--done-color); }
+    .column[data-col="done"] .col-badge { background: var(--done-bg); color: var(--done-color); }
+
+    .col-body {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 4px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scrollbar-width: none;
+      background: var(--surface);
+      border-radius: var(--radius-xl);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      transition: background 0.2s ease, box-shadow 0.2s ease;
+      min-height: 100px;
+    }
+    .col-body::-webkit-scrollbar { display: none; }
+    .col-body.drag-over {
+      background: var(--surface2);
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    /* Add task button inside column */
+    .add-task-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 4px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text3);
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 500;
+      text-align: left;
+      border-radius: var(--radius-sm);
+      transition: color 0.15s ease;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+    .add-task-btn:active { color: var(--text2); }
+    .add-task-btn svg { opacity: 0.5; flex-shrink: 0; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface-solid);
+      border-radius: var(--radius-md);
+      padding: 13px 14px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+      animation: cardIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      touch-action: none;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: scale(0.94) translateY(6px); }
+      to   { opacity: 1; transform: scale(1)    translateY(0); }
+    }
+    .card:active { cursor: grabbing; }
+    .card.dragging {
+      opacity: 0.4;
+      box-shadow: var(--shadow-lg);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+    .card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .card-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.2px;
+    }
+    .column[data-col="todo"]  .card-tag { background: var(--todo-bg);  color: var(--todo-color); }
+    .column[data-col="doing"] .card-tag { background: var(--doing-bg); color: var(--doing-color); }
+    .column[data-col="done"]  .card-tag { background: var(--done-bg);  color: var(--done-color); }
+    .card-delete {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(120,120,128,0.12);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text3);
+      font-size: 14px;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .card-delete:active { background: rgba(255,59,48,0.15); color: #ff3b30; }
+
+    /* ── Ghost card while dragging ── */
+    .drag-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.92;
+      box-shadow: var(--shadow-lg);
+      transform: rotate(2deg) scale(1.03);
+      transition: transform 0.1s ease;
+      border-radius: var(--radius-md);
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      padding: 13px 14px;
+      min-width: 180px;
+      max-width: 280px;
+    }
+
+    /* ── Modal (add task) ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .modal {
+      background: var(--surface-solid);
+      width: 100%;
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      padding: 8px 20px 20px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+    }
+    .modal-overlay.open .modal {
+      transform: translateY(0);
+    }
+    .modal-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      margin: 6px auto 18px;
+    }
+    .modal-title {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 18px;
+      letter-spacing: -0.3px;
+    }
+    .modal textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      font-family: var(--font);
+      font-size: 16px;
+      color: var(--text);
+      resize: none;
+      height: 100px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .modal textarea:focus { border-color: var(--accent); }
+    .modal textarea::placeholder { color: var(--text3); }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .btn-cancel {
+      flex: 1;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      font-family: var(--font);
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn-add {
+      flex: 2;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .btn-add:active { opacity: 0.8; }
+    .btn-add:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Scroll dots ── */
+    .dots {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 0 2px;
+    }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--text3);
+      transition: all 0.3s ease;
+    }
+    .dot.active {
+      background: var(--accent);
+      width: 18px;
+      border-radius: 3px;
+    }
+
+    /* Empty state */
+    .empty-hint {
+      text-align: center;
+      padding: 28px 8px;
+      color: var(--text3);
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.6;
+      pointer-events: none;
+    }
+    .empty-icon {
+      font-size: 28px;
+      margin-bottom: 6px;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1 class="header-title">Mis Tareas</h1>
+    <span class="header-count" id="total-count">0 tareas</span>
+  </div>
+</header>
+
+<div class="dots" id="dots">
+  <div class="dot active"></div>
+  <div class="dot"></div>
+  <div class="dot"></div>
+</div>
+
+<div class="board" id="board">
+  <!-- columns injected by JS -->
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">Nueva tarea</div>
+    <textarea id="task-input" placeholder="¿Qué hay que hacer?" maxlength="200"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="btn-cancel">Cancelar</button>
+      <button class="btn-add" id="btn-add" disabled>Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  const COLS = [
+    { id: 'todo',  label: 'Por hacer', tag: 'Pendiente' },
+    { id: 'doing', label: 'En curso',  tag: 'En curso'  },
+    { id: 'done',  label: 'Hecho',     tag: 'Completado'},
+  ];
+
+  let tasks = loadTasks() || {
+    todo: [
+      { id: uid(), text: 'Revisar correos del día' },
+      { id: uid(), text: 'Preparar presentación del equipo' },
+    ],
+    doing: [
+      { id: uid(), text: 'Análisis de métricas Q1' },
+    ],
+    done: [
+      { id: uid(), text: 'Reunión de onboarding' },
+    ]
+  };
+
+  function uid() {
+    return Math.random().toString(36).slice(2, 9);
+  }
+  function loadTasks() {
+    try {
+      const d = localStorage.getItem('kanban_tasks');
+      return d ? JSON.parse(d) : null;
+    } catch { return null; }
+  }
+  function saveTasks() {
+    try { localStorage.setItem('kanban_tasks', JSON.stringify(tasks)); } catch {}
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const board = document.getElementById('board');
+
+  function render() {
+    board.innerHTML = '';
+    let total = 0;
+    COLS.forEach(col => {
+      total += tasks[col.id].length;
+      const colEl = document.createElement('div');
+      colEl.className = 'column';
+      colEl.dataset.col = col.id;
+
+      const count = tasks[col.id].length;
+      colEl.innerHTML = `
+        <div class="col-header">
+          <div class="col-dot"></div>
+          <div class="col-title">${col.label}</div>
+          <div class="col-badge">${count}</div>
+        </div>
+        <div class="col-body" id="body-${col.id}">
+          ${count === 0 ? `<div class="empty-hint"><div class="empty-icon">○</div>Sin tareas aquí</div>` : ''}
+          ${tasks[col.id].map(t => cardHTML(t, col)).join('')}
+          <button class="add-task-btn" data-col="${col.id}">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="8" y1="5" x2="8" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Agregar tarea
+          </button>
+        </div>
+      `;
+      board.appendChild(colEl);
+    });
+
+    document.getElementById('total-count').textContent = 
+      total === 1 ? '1 tarea' : `${total} tareas`;
+
+    attachCardEvents();
+    attachDropZones();
+    attachAddButtons();
+  }
+
+  function cardHTML(task, col) {
+    return `<div class="card" id="card-${task.id}" draggable="true" data-id="${task.id}" data-col="${col.id}">
+      <div class="card-title">${escHtml(task.text)}</div>
+      <div class="card-meta">
+        <span class="card-tag">${col.tag}</span>
+        <button class="card-delete" data-id="${task.id}" data-col="${col.id}" title="Eliminar">×</button>
+      </div>
+    </div>`;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Drag & Drop (desktop) ──────────────────────────────────────────────────
+  let dragId = null, dragCol = null;
+
+  function attachCardEvents() {
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('dragstart', e => {
+        dragId = card.dataset.id;
+        dragCol = card.dataset.col;
+        setTimeout(() => card.classList.add('dragging'), 0);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+      });
+
+      // Delete
+      card.querySelector('.card-delete').addEventListener('click', e => {
+        e.stopPropagation();
+        const id = e.currentTarget.dataset.id;
+        const col = e.currentTarget.dataset.col;
+        tasks[col] = tasks[col].filter(t => t.id !== id);
+        saveTasks();
+        render();
+      });
+    });
+  }
+
+  function attachDropZones() {
+    document.querySelectorAll('.col-body').forEach(zone => {
+      zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+      });
+      zone.addEventListener('dragleave', e => {
+        if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+      });
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const toCol = zone.id.replace('body-', '');
+        if (!dragId || toCol === dragCol) return;
+        const task = tasks[dragCol].find(t => t.id === dragId);
+        if (!task) return;
+        tasks[dragCol] = tasks[dragCol].filter(t => t.id !== dragId);
+        tasks[toCol].push(task);
+        saveTasks();
+        render();
+        dragId = null; dragCol = null;
+      });
+    });
+  }
+
+  // ── Touch Drag (mobile) ────────────────────────────────────────────────────
+  let ghost = null, touchCard = null, touchColId = null, touchTaskId = null;
+
+  function attachTouchDrag() {
+    document.addEventListener('touchstart', e => {
+      const card = e.target.closest('.card');
+      if (!card) return;
+      // Don't drag on delete button
+      if (e.target.closest('.card-delete')) return;
+      touchCard = card;
+      touchTaskId = card.dataset.id;
+      touchColId = card.dataset.col;
+
+      const t = e.touches[0];
+      const rect = card.getBoundingClientRect();
+
+      ghost = document.createElement('div');
+      ghost.className = 'drag-ghost';
+      ghost.innerHTML = card.innerHTML;
+      ghost.style.width = rect.width + 'px';
+      ghost.style.left = rect.left + 'px';
+      ghost.style.top = rect.top + 'px';
+      document.body.appendChild(ghost);
+
+      card.style.opacity = '0.35';
+    }, { passive: true });
+
+    document.addEventListener('touchmove', e => {
+      if (!ghost) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      const ghostW = ghost.offsetWidth;
+      const ghostH = ghost.offsetHeight;
+      ghost.style.left = (t.clientX - ghostW / 2) + 'px';
+      ghost.style.top  = (t.clientY - ghostH / 2) + 'px';
+
+      // highlight drop zone
+      ghost.style.display = 'none';
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      ghost.style.display = '';
+      document.querySelectorAll('.col-body').forEach(z => z.classList.remove('drag-over'));
+      const zone = el ? el.closest('.col-body') : null;
+      if (zone) zone.classList.add('drag-over');
+    }, { passive: false });
+
+    document.addEventListener('touchend', e => {
+      if (!ghost) return;
+      const t = e.changedTouches[0];
+      ghost.style.display = 'none';
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      ghost.style.display = '';
+      const zone = el ? el.closest('.col-body') : null;
+
+      document.querySelectorAll('.col-body').forEach(z => z.classList.remove('drag-over'));
+
+      if (zone) {
+        const toCol = zone.id.replace('body-', '');
+        if (toCol !== touchColId) {
+          const task = tasks[touchColId].find(t2 => t2.id === touchTaskId);
+          if (task) {
+            tasks[touchColId] = tasks[touchColId].filter(t2 => t2.id !== touchTaskId);
+            tasks[toCol].push(task);
+            saveTasks();
+          }
+        }
+      }
+
+      ghost.remove(); ghost = null;
+      if (touchCard) { touchCard.style.opacity = ''; touchCard = null; }
+      touchColId = null; touchTaskId = null;
+
+      render();
+    });
+  }
+
+  // ── Add task modal ─────────────────────────────────────────────────────────
+  let activeAddCol = null;
+  const overlay   = document.getElementById('modal-overlay');
+  const titleEl   = document.getElementById('modal-title');
+  const inputEl   = document.getElementById('task-input');
+  const btnAdd    = document.getElementById('btn-add');
+  const btnCancel = document.getElementById('btn-cancel');
+
+  function attachAddButtons() {
+    document.querySelectorAll('.add-task-btn').forEach(btn => {
+      btn.addEventListener('click', () => openModal(btn.dataset.col));
+    });
+  }
+
+  function openModal(colId) {
+    activeAddCol = colId;
+    const col = COLS.find(c => c.id === colId);
+    titleEl.textContent = `Nueva tarea — ${col.label}`;
+    inputEl.value = '';
+    btnAdd.disabled = true;
+    overlay.classList.add('open');
+    setTimeout(() => inputEl.focus(), 350);
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    activeAddCol = null;
+    inputEl.blur();
+  }
+
+  btnCancel.addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  inputEl.addEventListener('input', () => {
+    btnAdd.disabled = inputEl.value.trim().length === 0;
+  });
+
+  btnAdd.addEventListener('click', () => {
+    const text = inputEl.value.trim();
+    if (!text || !activeAddCol) return;
+    tasks[activeAddCol].push({ id: uid(), text });
+    saveTasks();
+    closeModal();
+    render();
+  });
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey && inputEl.value.trim()) {
+      e.preventDefault();
+      btnAdd.click();
+    }
+  });
+
+  // ── Scroll dots ────────────────────────────────────────────────────────────
+  const dotsEl = document.getElementById('dots');
+  const dots = dotsEl.querySelectorAll('.dot');
+  board.addEventListener('scroll', () => {
+    const idx = Math.round(board.scrollLeft / board.offsetWidth);
+    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+  }, { passive: true });
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  render();
+  attachTouchDrag();
+</script>
+</body>
+</html>
